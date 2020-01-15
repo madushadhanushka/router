@@ -2,7 +2,7 @@ from flask import Flask, request
 import mysql.connector
 from models.track import Track
 import math
-from libs.utils import getCurrentGoal, updateCurrentGoal, findReverseRoute, findMaxGoal, findMaxLink, resetGoalRecord
+from libs.utils import getCurrentGoal, updateCurrentGoal, findReverseRoute, findMaxGoal, findMaxLink, resetGoalRecord, findAcuteAngle
 
 mydb = mysql.connector.connect(
     host="localhost",
@@ -32,7 +32,7 @@ def findGoal():
                 next_route: Next route prediction
     """
     input = request.get_json()
-    currentRoot = findCurrentRoute(input['latitude'], input['longitude'])
+    currentRoot = findCurrentRoute(input['latitude'], input['longitude'], input['direction'])
     next_goal, next_route = findNextGoal(currentRoot)
     updateCurrentGoal(next_goal)
     return {"status": "success", "next_goal": next_goal, "next_route": next_route}
@@ -48,7 +48,7 @@ def addCoordinate():
                 status: Execution status
     """
     input = request.get_json()
-    addCoordinate(input['latitude'], input['longitude'], input['track_id'])
+    addCoordinate(input['latitude'], input['longitude'], input['track_id'], input['direction'])
     return {"status": "success"}
 
 @app.route('/resetGoal', methods=['POST'])
@@ -80,34 +80,40 @@ def findNextGoal(current_route):
     else:
         # if initial goal already found, then keep predict with existing goal
         next_route = findMaxLink(current_route, current_goal)
-        next_goal = findMaxGoal(next_route)
+        next_goal, max_goal_count = findMaxGoal(next_route)
         print("Next goal selected: " + str(next_goal) + " with path " + str(next_route))
         return next_goal, next_route
     print(current_goal)
 
-def findCurrentRoute(latitude, longitude):
+def findCurrentRoute(latitude, longitude, direction):
     input = request.get_json()
-    currentCoordinate = Track(input['latitude'], input['longitude'], 0)
+    currentCoordinate = Track(latitude, longitude, 0)
 
     mycursor.execute("SELECT * FROM route")
     routeList = mycursor.fetchall()
 
     minDistance = float("inf")
     pivotCooridnate = Track(0, 0, 0)
-
+    pivotDirection = 0
     for route in routeList:
-        fixedPoint = Track(route[1],route[2], route[3])
+        fixedPoint = Track(route[1],route[2], route[4])
         distance = fixedPoint.findDistance(currentCoordinate)
         if distance < minDistance:
             minDistance = distance
             pivotCooridnate = fixedPoint
+            pivotDirection = route[3]
 
-    print('Current route selected: ' + str(pivotCooridnate.track_id))
-    return pivotCooridnate.track_id
+    angleDifference = findAcuteAngle(direction, pivotDirection)
+    if angleDifference <= 90:
+        selectedRoute = pivotCooridnate.track_id
+    else:
+        selectedRoute = findReverseRoute(pivotCooridnate.track_id)
+    print('Selected current route: ' + str(selectedRoute))
+    return selectedRoute
 
-def addCoordinate(latitude, longitude, track_id):
-    sql = "INSERT INTO coordinate(latitude, longitude, track_id) VALUES (%s, %s, %s)"
-    val = (latitude, longitude, track_id)
+def addCoordinate(latitude, longitude, track_id,direction):
+    sql = "INSERT INTO coordinate(latitude, longitude, track_id, direction) VALUES (%s, %s, %s, %s)"
+    val = (latitude, longitude, track_id, direction)
     mycursor.execute(sql, val)
     mydb.commit()
 

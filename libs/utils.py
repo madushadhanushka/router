@@ -48,3 +48,12 @@ def findMaxLink(current_link, current_goal):
 def resetGoalRecord():
     mycursor.execute("UPDATE meta_data SET meta_value=0 WHERE meta_key='current_goal'")
     mydb.commit()
+
+# Shortest distance (angular) between two angles.
+# It will be in range [0, 180].
+def findAcuteAngle(alpha, beta):
+ phi = abs(beta - alpha) % 360
+ if phi > 180:
+     return 360-phi
+ else:
+     return phi
