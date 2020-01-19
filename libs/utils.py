@@ -1,4 +1,7 @@
 import mysql.connector
+from datetime import datetime
+from datetime import timedelta
+
 mydb = mysql.connector.connect(
     host="localhost",
     user="root",
@@ -24,7 +27,10 @@ def findReverseRoute(current_route):
     return int(mycursor.fetchall()[0][0])
 
 def findMaxGoal(current_route):
-    mycursor.execute("SELECT goal_id, count FROM link_goal_model where link_id=%s", (current_route,))
+
+    time_type = find_time_type()
+    print("Time type selected as: " + str(time_type))
+    mycursor.execute("SELECT goal_id, count FROM link_goal_model where link_id=%s and time_type=%s", (current_route, time_type))
     initialGoalList = mycursor.fetchall()
     maxGoalCount = 0
     maxGoalId = 0
@@ -35,10 +41,13 @@ def findMaxGoal(current_route):
     return maxGoalId, maxGoalCount
 
 def findMaxLink(current_link, current_goal):
-    mycursor.execute("SELECT route_to, count from route_map_model WHERE route_from=%s AND current_goal=%s", (current_link, current_goal))
+
+    time_type = find_time_type()
+    mycursor.execute("SELECT route_to, count from route_map_model WHERE route_from=%s AND current_goal=%s AND time_type=%s", (current_link, current_goal, time_type))
     link_list = mycursor.fetchall()
+    print(link_list)
     max_link_count = 0
-    max_link_id = 0;
+    max_link_id = 0
     for links in link_list:
         if max_link_count < links[1]:
             max_link_count = links[1]
@@ -52,8 +61,48 @@ def resetGoalRecord():
 # Shortest distance (angular) between two angles.
 # It will be in range [0, 180].
 def findAcuteAngle(alpha, beta):
- phi = abs(beta - alpha) % 360
- if phi > 180:
-     return 360-phi
- else:
-     return phi
+    phi = abs(beta - alpha) % 360
+    if phi > 180:
+        return 360 - phi
+    else:
+        return phi
+
+def find_time_type():
+    current_time = datetime.now()
+    mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='time_range_1_min'")
+    time_range_1_min = datetime.strptime(mycursor.fetchall()[0][0], '%H:%M:%S')
+
+    mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='time_range_1_max'")
+    time_range_1_max = datetime.strptime(mycursor.fetchall()[0][0], '%H:%M:%S')
+
+    mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='time_range_2_min'")
+    time_range_2_min = datetime.strptime(mycursor.fetchall()[0][0], '%H:%M:%S')
+
+    mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='time_range_2_max'")
+    time_range_2_max = datetime.strptime(mycursor.fetchall()[0][0], '%H:%M:%S')
+
+    if isWeekDay(current_time):
+        if time_in_range(time_range_1_min, time_range_1_max, current_time):
+            return 1
+        elif time_in_range(time_range_2_min, time_range_2_max, current_time):
+            return 2
+    else:
+        return 3
+
+def time_in_range(start, end, x):
+    """Return true if x is in the range [start, end]"""
+    start_time = datetime(1900, 01, 01, start.hour, start.minute, start.second, 000000)
+    end_time = datetime(1900, 01, 01, end.hour, end.minute, end.second, 000000)
+    x_time = datetime(1900, 01, 01, x.hour, x.minute, x.second, 000000)
+
+    if start_time <= end_time:
+        return start_time <= x_time <= end_time
+    else:
+        return start_time <= x_time or x_time <= end_time
+
+def isWeekDay(current_time):
+    dayNumber = current_time.isoweekday()
+    if dayNumber > 5:
+        return False
+    else:
+        return True
