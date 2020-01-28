@@ -2,8 +2,11 @@ from flask import Flask, request
 import mysql.connector
 from models.track import Track
 from datetime import datetime
+from pandas import DataFrame
 import math
-from libs.utils import getCurrentGoal, updateCurrentGoal, findReverseRoute, findMaxGoal, findMaxLink, resetGoalRecord, findAcuteAngle
+from models.zone_segment import ZoneSegment
+
+from libs.utils import getCurrentGoal, updateCurrentGoal, findReverseRoute, findMaxGoal, findMaxLink, resetGoalRecord, findAcuteAngle, getLastCoordinates, findClosedRouteSegment
 
 mydb = mysql.connector.connect(
     host="localhost",
@@ -39,7 +42,7 @@ def findGoal():
     return {"status": "success", "next_goal": next_goal, "next_route": next_route}
 
 @app.route('/coordinate', methods=['PUT'])
-def addCoordinate():
+def addCoordinateAPI():
     """Add geo point into the DB
     Inputs:
                 latitude (string): latitude of current location
@@ -56,6 +59,36 @@ def addCoordinate():
 def resetGoal():
     resetGoalRecord()
     return {"status": "success"}
+
+@app.route('/findAbnormal', methods=['POST'])
+def findAbnormal():
+    input = request.get_json()
+    lastCoordinate = DataFrame(getLastCoordinates(5))
+
+    acc_x = lastCoordinate.iloc[:,0:1]
+    acc_y = lastCoordinate.iloc[:,1:2]
+
+    acc_x_mean = acc_x.mean()
+    acc_x_median = acc_x.median()
+    acc_x_std = acc_x.std()
+
+    acc_x_apms = 3*(acc_x_mean - acc_x_median)/acc_x_std
+
+    acc_y_mean = acc_y.mean()
+    acc_y_median = acc_y.median()
+    acc_y_std = acc_y.std()
+
+    acc_y_apms = 3*(acc_y_mean - acc_y_median)/acc_y_std
+
+    closed_route = findClosedRouteSegment(ZoneSegment(input['latitude'], input['longitude'], 0, 0))
+
+    abnormality_acc_x = abs(acc_x_apms - closed_route.acc_x)
+    abnormality_acc_y = abs(acc_y_apms - closed_route.acc_y)
+    return {
+        "status": "success",
+        "abnormality_acc_x": str(abnormality_acc_x[0]),
+        "abnormality_acc_y": str(abnormality_acc_y[1])
+    }
 
 def findNextGoal(current_route):
     current_goal = getCurrentGoal()

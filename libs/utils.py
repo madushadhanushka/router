@@ -1,6 +1,7 @@
 import mysql.connector
 from datetime import datetime
-from datetime import timedelta
+from models.track import Track
+from models.zone_segment import ZoneSegment
 
 mydb = mysql.connector.connect(
     host="localhost",
@@ -106,3 +107,21 @@ def isWeekDay(current_time):
         return False
     else:
         return True
+
+def getLastCoordinates(count):
+    mycursor.execute("SELECT acc_x, acc_y FROM coordinate order by id DESC LIMIT %s", (count,))
+    return mycursor.fetchall()
+
+def findClosedRouteSegment(currentCoordinate):
+    mycursor.execute("SELECT latitude, longitude, acc_x_apms, acc_y_apms from apms_zones")
+    segments = mycursor.fetchall()
+    minDistance = float("inf")
+    pivotCooridnate = ZoneSegment(0, 0, 0, 0)
+    print(segments)
+    for segment in segments:
+        fixedPoint = ZoneSegment(segment[0], segment[1], segment[2], segment[3])
+        distance = fixedPoint.findDistance(currentCoordinate)
+        if distance < minDistance:
+            minDistance = distance
+            pivotCooridnate = fixedPoint
+    return pivotCooridnate
