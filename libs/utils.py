@@ -12,10 +12,16 @@ mydb = mysql.connector.connect(
 mycursor = mydb.cursor()
 
 def getCurrentGoal():
+    """
+    Get current goal for current route
+    """
 	mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='current_goal'")
 	return int(mycursor.fetchall()[0][0])
 
 def updateCurrentGoal(current_goal):
+    """
+    update current goal with new goal id
+    """
     if current_goal is None:
         current_goal = 0
     print("Update current goal as: " + str(current_goal))
@@ -24,11 +30,16 @@ def updateCurrentGoal(current_goal):
     return
 
 def findReverseRoute(current_route):
+    """
+    find reverse route for the given route id
+    """
     mycursor.execute("SELECT reverse_route from reverse_route where route=%s", (current_route,))
     return int(mycursor.fetchall()[0][0])
 
 def findMaxGoal(current_route):
-
+    """
+    find goal with maximum occurences for the given current route
+    """
     time_type = find_time_type()
     print("Time type selected as: " + str(time_type))
     mycursor.execute("SELECT goal_id, count FROM link_goal_model where link_id=%s and time_type=%s", (current_route, time_type))
@@ -44,7 +55,9 @@ def findMaxGoal(current_route):
     return maxGoalId, maxGoalCount
 
 def findMaxLink(current_link, current_goal):
-
+    """
+    Find next possible route by selecting link with maximum count for given route and current goal
+    """
     time_type = find_time_type()
     mycursor.execute("SELECT route_to, count from route_map_model WHERE route_from=%s AND current_goal=%s AND time_type=%s", (current_link, current_goal, time_type))
     link_list = mycursor.fetchall()
@@ -70,12 +83,17 @@ def findMaxLink(current_link, current_goal):
     return max_link_id
 
 def resetGoalRecord():
+    """
+    Reset current goal to zero
+    """
     mycursor.execute("UPDATE meta_data SET meta_value=0 WHERE meta_key='current_goal'")
     mydb.commit()
 
 # Shortest distance (angular) between two angles.
 # It will be in range [0, 180].
 def findAcuteAngle(alpha, beta):
+    """ find acute angle for reverse route
+    """
     phi = abs(beta - alpha) % 360
     if phi > 180:
         return 360 - phi
@@ -83,7 +101,9 @@ def findAcuteAngle(alpha, beta):
         return phi
 
 def find_time_type():
-
+    """
+    find time type for current timestamp
+    """
     #todo time type hardcode to type 1
     return 1
 
@@ -120,6 +140,9 @@ def time_in_range(start, end, x):
         return start_time <= x_time or x_time <= end_time
 
 def isWeekDay(current_time):
+    """
+    check if given time is weekday or weekend
+    """
     dayNumber = current_time.isoweekday()
     if dayNumber > 5:
         return False
@@ -131,6 +154,9 @@ def getLastCoordinates(count):
     return mycursor.fetchall()
 
 def findClosedRouteSegment(currentCoordinate):
+    """
+    find the closed route segment for current location
+    """
     mycursor.execute("SELECT latitude, longitude, acc_x_apms, acc_y_apms, safty_threshold, safty_sign from apms_zones")
     segments = mycursor.fetchall()
     mydb.commit()

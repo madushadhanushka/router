@@ -20,6 +20,9 @@ app = Flask(__name__,  static_url_path='/static')
 
 @app.route('/js/<path:path>')
 def send_js(path):
+    """
+    Load javascript component for demo
+    """
     return send_from_directory('js', path)
 
 @app.route('/findGoal', methods=['POST'])
@@ -70,11 +73,17 @@ def getLastCoordinate():
 
 @app.route('/resetGoal', methods=['POST'])
 def resetGoal():
+    """
+    Set current goal to zero
+    """
     resetGoalRecord()
     return {"status": "success"}
 
 @app.route('/findAbnormal', methods=['POST'])
 def findAbnormal():
+    """
+    Classify last 30 datapoints are normal or abnormal
+    """
     input = request.get_json()
     lastCoordinate = DataFrame(getLastCoordinates(30))
 
@@ -88,22 +97,25 @@ def findAbnormal():
     #acc_y_mode = (frequency_table_y.idxmax(axis = 0)['count_1'].left + frequency_table_y.idxmax(axis = 0)['count_1'].right)/2
     #acc_y_mean = acc_y.mean()
 
+    # calculate standard deviation
     acc_x_std = acc_x.abs().std()
     acc_y_std = acc_y.abs().std()
 
-
+    # calculate safety score
     safety_score = 1/acc_x_std[0]/acc_y_std[1]
     segment = ZoneSegment(input['latitude'], input['longitude'], 0, 0, 0, 0)
+    # find the closed route segment to find the threshold safety score for current segement
     closed_route = findClosedRouteSegment(segment)
 
     abnormality="normal"
     if closed_route.safty_sign=='0':
-        print("in sero")
+        # if steady behavior is normal
         if float(closed_route.safty_threshold)>safety_score:
             abnormality="abnormal"
         else:
             abnormality="normal"
     else:
+        # if steady behavir is abnormal
         if float(closed_route.safty_threshold)>safety_score:
             abnormality="normal"
         else:
@@ -145,6 +157,9 @@ def findNextGoal(current_route, direction):
         return next_goal, next_route
 
 def findCurrentRoute(latitude, longitude, direction):
+    """
+    Find current route by current location and direction
+    """
     input = request.get_json()
     currentCoordinate = Track(latitude, longitude, 0)
 
@@ -154,22 +169,27 @@ def findCurrentRoute(latitude, longitude, direction):
     minDistance = float("inf")
     pivotCooridnate = Track(0, 0, 0)
     pivotDirection = 0
+    # loop in all available routes
     for route in routeList:
         fixedPoint = Track(route[1],route[2], route[4])
         distance = fixedPoint.findDistance(currentCoordinate)
+        # find the route with minimum distance to current location
         if distance < minDistance:
             minDistance = distance
             pivotCooridnate = fixedPoint
             pivotDirection = route[3]
     angleDifference = findAcuteAngle(direction, pivotDirection)
+    # if route direction also whithin current direction
     if angleDifference <= 90:
         selectedRoute = pivotCooridnate.track_id
     else:
+        # if route direction opposite the the current direction
         selectedRoute = findReverseRoute(pivotCooridnate.track_id)
     print('Selected current route: ' + str(selectedRoute))
     return selectedRoute
 
 def addCoordinate(latitude, longitude, track_id,direction, acc_x, acc_y, speed):
+    # store current coordinate on the DB
     sql = "INSERT INTO coordinate(latitude, longitude, track_id, direction, acc_x, acc_y, speed) VALUES (%s, %s, %s, %s, %s, %s, %s)"
     val = (latitude, longitude, track_id, direction, acc_x, acc_y, speed)
     mycursor.execute(sql, val)
@@ -177,6 +197,9 @@ def addCoordinate(latitude, longitude, track_id,direction, acc_x, acc_y, speed):
 
 @app.route('/routes', methods=['POST'])
 def getRoutes():
+    """
+    Get all available route coordinates
+    """
     mycursor.execute("SELECT id, latitude, longitude, direction, route_id from route")
     allRoutes = mycursor.fetchall()
     return {
@@ -185,6 +208,9 @@ def getRoutes():
 
 @app.route('/addSample1', methods=['GET'])
 def addSample1():
+    """
+    add sample1 to test normal behavior of vehicle
+    """
     mycursor.execute('''
 INSERT INTO coordinate(longitude, latitude, track_id, direction, acc_x, acc_y, speed) VALUES 
 (79.90356956,6.795385332,1,145,-0.840313,0.188314,15),
@@ -225,6 +251,9 @@ INSERT INTO coordinate(longitude, latitude, track_id, direction, acc_x, acc_y, s
 
 @app.route('/addSample2', methods=['GET'])
 def addSample2():
+    """
+    add data sample2 to test abnormal behavior of driver
+    """
     mycursor.execute('''
 INSERT INTO coordinate(longitude, latitude, track_id, direction, acc_x, acc_y, speed) VALUES 
 (79.90356956,6.795385332,1,145,-0.184302,-5.342292,15),
