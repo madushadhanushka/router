@@ -1,0 +1,234 @@
+<html>
+	<head>
+		<link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+		<script type="text/javascript">
+			var direction = 0
+			var longitude = 0
+			var latitude = 0
+
+			init()
+			function init() {
+				$.ajax({
+  					type: "POST",
+  					contentType: "application/json; charset=utf-8",
+  					url: "http://localhost:5000/routes",
+  					dataType: "json"
+				}).done(function (result) {
+					for (i = 0; i < result.route.length; i++) {
+						dot_id = result.route[i][0];
+						dot_latitude = result.route[i][1];
+						dot_longitude = result.route[i][2];
+						dot_direction = result.route[i][3];
+						dot_route = result.route[i][4]
+						$("#map_canvas").append('<div id = "dot'+dot_id+'" class="map_dot route_class'+dot_route+'" style="top:'+getTop(dot_latitude)+';left:'+getLeft(dot_longitude)+'"></div>');
+					}
+					 
+				});
+				setInterval(updateCoordinate, 500);
+			}
+			function updateCoordinate() {
+				$.ajax({
+  					type: "GET",
+  					contentType: "application/json; charset=utf-8",
+  					url: "http://localhost:5000/lastCoordinate",
+  					dataType: "json"
+				}).done(function (result) {
+					console.log(result)
+					longitude = getLeft(result.longitude);
+					latitude = getTop(result.latitude);
+					direction = result.direction;
+					$("#car_img").css({top: latitude, left: longitude})
+				});
+				
+			}
+			function myFunction(event) {
+  				var x = event.keyCode;
+  				switch(x) {
+  					case 37: event.preventDefault(); rotateLeft(true); break;	// left
+  					case 38: event.preventDefault(); moveUp(); break; // up
+  					case 39: event.preventDefault(); rotateRight(); break; // right
+  					case 40: event.preventDefault(); moveDown(); break; // down
+  				}
+			}
+			function rotateRight() {
+				direction += 15
+				if (direction > 360) {
+					direction = 15
+				}
+				document.querySelector('#car_img').style.transform = 'rotate(' + direction + 'deg)'
+				$("#direction_lable").html(direction)
+			}
+			function rotateLeft() {
+				direction -= 15
+				if (direction < 0) {
+					direction = 345
+				}
+				document.querySelector('#car_img').style.transform = 'rotate(' + direction + 'deg)'
+				$("#direction_lable").html(direction)
+			}
+
+			function moveUp(){
+				latitude -= 15*Math.cos(direction*Math.PI / 180)
+				longitude += 15*Math.sin(direction*Math.PI / 180)
+				$("#car_img").css({top: latitude, left: longitude})
+				$("#latitude_lable").html(getLatitude())
+				$("#longitute_lable").html(getLongitude())
+				getRoadPrediction()
+			}
+
+			function moveDown(){
+				latitude += 15*Math.cos(direction*Math.PI / 180)
+				longitude -= 15*Math.sin(direction*Math.PI / 180)
+				$("#car_img").css({top: latitude, left: longitude})
+				$("#latitude_lable").html(getLatitude())
+				$("#longitute_lable").html(getLongitude())
+				getRoadPrediction()
+			}
+
+			function convertToRadian(angle) { 
+				return angle*Math.PI/180
+			}
+
+			function getLongitude() {
+				//return longitude
+				return 79.8812523 + longitude*0.000025
+			}
+
+			function getLatitude() {
+				//return latitude
+				return 6.7988 - latitude*0.000020
+			}
+
+			function getTop(latitude) {
+				return (6.7988 - latitude)/0.000020
+			}
+
+			function getLeft(longitude) {
+				return (longitude - 79.8812523)/0.000025
+			}
+
+			function getRoadPrediction() {
+				var data = '{"latitude": '+ getLatitude().toString() +', "longitude": ' + getLongitude().toString() 
+  					+ ',"direction": '+ direction.toString() +'}'
+  				$.ajax({
+  					type: "POST",
+  					contentType: "application/json; charset=utf-8",
+  					url: "http://localhost:5000/findGoal",
+  					data: data,
+  					dataType: "json"
+				}).done(function (result) {
+					console.log(result)
+					if (result.current_route < 12) {
+						$('.map_dot').css({'background-color': 'rgba(0,123,255,.5)'})
+						$('.route_class' + result.current_route).css({'background-color': '#ffc107'});
+					} else {
+						$('.map_dot').css({'background-color': 'rgba(0,123,255,.5)'})
+						reverse_route = result.current_route - 11
+						$('.route_class' + reverse_route).css({'background-color': '#ffc107'});
+					}
+					if (result.next_route < 12) {
+						//$('.map_dot').css({'background-color': 'rgba(0,123,255,.5)'})
+						$('.route_class' + result.next_route).css({'background-color': '#28a745'});
+					} else {
+						//$('.map_dot').css({'background-color': 'rgba(0,123,255,.5)'})
+						next_reverse_route = result.next_route - 11
+						$('.route_class' + next_reverse_route).css({'background-color': '#28a745'});
+					}
+					$('.goal_dot').css({'background-color': '#d39e00'});
+					$('#goal_dot' + result.next_goal).css({'background-color': '#61cc6e'});
+					$("#next_link").html(result.next_route);
+					$("#next_goal").html(result.next_goal);
+				});
+			}
+			function addFirstDatatoSystem() {
+
+				$.ajax({
+  					type: "GET",
+  					contentType: "application/json; charset=utf-8",
+  					url: "http://localhost:5000/addSample1",
+				}).done(function (result) {
+
+				})
+			}
+
+			function addAbnomality1() {
+				data = '{"latitude": 79.888481, "longitude": 6.797020}'
+				$.ajax({
+  					type: "POST",
+  					contentType: "application/json; charset=utf-8",
+  					url: "http://localhost:5000/findAbnormal",
+  					data: data,
+  					dataType: "json"
+				}).done(function (result) {
+					$("#abnomality1").html(result.apms_x)
+				})
+			}
+		
+		</script>
+		<style>
+			.map_dot{
+				position: absolute;
+    			height: 10px;
+  				width: 10px;
+  				border-radius: 50%;
+  				display: inline-block;
+  				background-color: rgba(0,123,255,.5);
+			}
+			.map_image{
+				position: absolute;
+    			left: 96px;
+    			width: 860px;
+    			height: 588px;
+			}
+			.goal_dot{
+				position: absolute;
+    			height: 24px;
+    			width: 24px;
+    			text-align: center;
+    			border-radius: 50%;
+    			display: inline-block;
+    			background-color: #d39e00;
+    			z-index: 1;
+			}
+			.abnormal_button{
+				margin: 10px;
+			}
+		</style>
+	</head>
+	<body onkeydown="myFunction(event)">
+		<br>
+		<div class="row" style="height: 620px;">
+			<div class="col-sm-1"></div>
+  			<div class="col-sm-2">
+  				<div>Latitude</div>
+  				<div id="latitude_lable"></div>
+  				<hr/>
+  				<div>Longitude</div>
+  				<div id="longitute_lable"></div>
+  				<hr/>
+  				<div>Direction</div>
+  				<div id="direction_lable"></div>
+  				<hr>
+  				<b>Prediction</b>
+  				<div>Next Link</div>
+  				<div id="next_link"></div>
+  				<hr/>
+  				<div>Next Goal</div>
+  				<div id="next_goal"></div>
+  			</div>
+  			<div class="col-sm-8">
+  				<!--<div style="width: 100%; position: absolute;"><iframe width="100%" height="600" src="https://maps.google.com/maps?width=100%&amp;height=600&amp;hl=en&amp;q=anandarama%20temple+(My%20Business%20Name)&amp;ie=UTF8&amp;t=&amp;z=15&amp;iwloc=B&amp;output=embed" frameborder="0" scrolling="no" marginheight="0" marginwidth="0"><a href="https://www.maps.ie/coordinates.html">find my coordinates</a></iframe></div>-->
+  				<div id = "map_canvas">
+  					<img src="map.png" width="1000" class = "map_image" />
+  					<img src="car.jpeg" id="car_img" width="20" style="position: absolute;z-index: 2;" />
+  					<div id="goal_dot1" class="goal_dot" style="top: 532px;left: 152px;">1</div>
+  					<div id="goal_dot2" class="goal_dot" style="top: 69px;left: 298px;">2</div>
+  					<div id="goal_dot3" class="goal_dot" style="top: 254px;left: 753px;">3</div>
+  					<div id="goal_dot4" class="goal_dot" style="top: 189px;left: 882px;">4</div>
+  					<div id="goal_dot5" class="goal_dot" style="top: 7px;left: 772px;">5</div>
+  				</div>
+  			</div>
+		</div>
+	</body>
+</html>

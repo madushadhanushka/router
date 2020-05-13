@@ -33,6 +33,8 @@ def findMaxGoal(current_route):
     print("Time type selected as: " + str(time_type))
     mycursor.execute("SELECT goal_id, count FROM link_goal_model where link_id=%s and time_type=%s", (current_route, time_type))
     initialGoalList = mycursor.fetchall()
+    print(mycursor.statement)
+    print(initialGoalList)
     maxGoalCount = 0
     maxGoalId = 0
     for goals in initialGoalList:
@@ -46,6 +48,7 @@ def findMaxLink(current_link, current_goal):
     time_type = find_time_type()
     mycursor.execute("SELECT route_to, count from route_map_model WHERE route_from=%s AND current_goal=%s AND time_type=%s", (current_link, current_goal, time_type))
     link_list = mycursor.fetchall()
+    print(mycursor.statement)
     print(link_list)
     max_link_count = 0
     max_link_id = 0
@@ -53,6 +56,17 @@ def findMaxLink(current_link, current_goal):
         if max_link_count < links[1]:
             max_link_count = links[1]
             max_link_id = links[0]
+
+    if max_link_id == 0:
+        mycursor.execute("SELECT route_to, count from route_map_model WHERE route_from=%s AND time_type=%s", (current_link, time_type))
+        link_list2 = mycursor.fetchall()
+        print(mycursor.statement)
+        max_link_count2 = 0
+        max_link_id = 0
+        for links in link_list2:
+            if max_link_count2 < links[1]:
+                max_link_count2 = links[1]
+                max_link_id = links[0]
     return max_link_id
 
 def resetGoalRecord():
@@ -69,6 +83,10 @@ def findAcuteAngle(alpha, beta):
         return phi
 
 def find_time_type():
+
+    #todo time type hardcode to type 1
+    return 1
+
     current_time = datetime.now()
     mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='time_range_1_min'")
     time_range_1_min = datetime.strptime(mycursor.fetchall()[0][0], '%H:%M:%S')
@@ -92,9 +110,9 @@ def find_time_type():
 
 def time_in_range(start, end, x):
     """Return true if x is in the range [start, end]"""
-    start_time = datetime(1900, 01, 01, start.hour, start.minute, start.second, 000000)
-    end_time = datetime(1900, 01, 01, end.hour, end.minute, end.second, 000000)
-    x_time = datetime(1900, 01, 01, x.hour, x.minute, x.second, 000000)
+    start_time = datetime(1900, 1, 1, start.hour, start.minute, start.second, 0)
+    end_time = datetime(1900, 1, 1, end.hour, end.minute, end.second, 0)
+    x_time = datetime(1900, 1, 1, x.hour, x.minute, x.second, 0)
 
     if start_time <= end_time:
         return start_time <= x_time <= end_time
@@ -113,13 +131,14 @@ def getLastCoordinates(count):
     return mycursor.fetchall()
 
 def findClosedRouteSegment(currentCoordinate):
-    mycursor.execute("SELECT latitude, longitude, acc_x_apms, acc_y_apms from apms_zones")
+    mycursor.execute("SELECT latitude, longitude, acc_x_apms, acc_y_apms, safty_threshold, safty_sign from apms_zones")
     segments = mycursor.fetchall()
+    mydb.commit()
     minDistance = float("inf")
-    pivotCooridnate = ZoneSegment(0, 0, 0, 0)
+    pivotCooridnate = ZoneSegment(0, 0, 0, 0, 0, 0)
     print(segments)
     for segment in segments:
-        fixedPoint = ZoneSegment(segment[0], segment[1], segment[2], segment[3])
+        fixedPoint = ZoneSegment(segment[0], segment[1], segment[2], segment[3], segment[4], segment[5])
         distance = fixedPoint.findDistance(currentCoordinate)
         if distance < minDistance:
             minDistance = distance
