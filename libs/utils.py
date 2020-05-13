@@ -15,8 +15,8 @@ def getCurrentGoal():
     """
     Get current goal for current route
     """
-	mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='current_goal'")
-	return int(mycursor.fetchall()[0][0])
+    mycursor.execute("SELECT meta_value FROM meta_data WHERE meta_key='current_goal'")
+    return int(mycursor.fetchall()[0][0])
 
 def updateCurrentGoal(current_goal):
     """
