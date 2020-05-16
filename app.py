@@ -108,18 +108,12 @@ def findAbnormal():
     closed_route = findClosedRouteSegment(segment)
 
     abnormality="normal"
-    if closed_route.safty_sign=='0':
-        # if steady behavior is normal
-        if float(closed_route.safty_threshold)>safety_score:
-            abnormality="abnormal"
-        else:
-            abnormality="normal"
-    else:
-        # if steady behavir is abnormal
-        if float(closed_route.safty_threshold)>safety_score:
-            abnormality="normal"
-        else:
-            abnormality="abnormal"
+    z_score = (safety_score - closed_route.data_mean)/closed_route.data_std
+    # if data outside the threshold, mark as abnormal
+    if (abs(z_score) > 3.5):
+        abnormality="abnormal"
+    print("safety_score " + str(safety_score))
+    print("z_score " + str(z_score))
 
     return {
         "status": "success",
@@ -136,7 +130,7 @@ def findNextGoal(current_route, direction):
         print("Start finding initial goal")
         goal_id = 0
         path_id = 0
-        maxGoalId, maxGoalCount= findMaxGoal(current_route)
+        maxGoalId, maxGoalCount = findMaxGoal(current_route)
         reverse_route = findReverseRoute(current_route)
         reverse_maxGoalId, reverse_maxGoalCount = findMaxGoal(reverse_route)
         print("Found goal " + str(maxGoalId) + " with " + str(maxGoalCount) + " and reverse path goal " +

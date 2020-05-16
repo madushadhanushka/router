@@ -157,7 +157,7 @@ def findClosedRouteSegment(currentCoordinate):
     """
     find the closed route segment for current location
     """
-    mycursor.execute("SELECT latitude, longitude, acc_x_apms, acc_y_apms, safty_threshold, safty_sign from apms_zones")
+    mycursor.execute("SELECT latitude, longitude, acc_x_apms, acc_y_apms, data_mean, data_std from apms_zones")
     segments = mycursor.fetchall()
     mydb.commit()
     minDistance = float("inf")
